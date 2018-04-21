@@ -15,13 +15,12 @@ VTEMP		 RES	    1
 STATUST		 RES	    1
 VADC2		 RES	    1
 VADC1		 RES	    1
-DATOS		 RES        1
 CONTAR		 RES	    1
-DATOX		 RES	    1
-DATOY		 RES        1
-DATOZ		 RES        1
+DATOINS		 RES	    1
+DATOA		 RES        1
+DATOB		 RES        1
 NUMDATO		 RES        1
-CAMBIO		 RES	    1
+BAN		 RES	    1
 ;*******************************************************************************
  
 RES_VECT  CODE    0x0000            ; processor reset vector
@@ -50,9 +49,21 @@ PUSH:
     MOVWF STATUST
     
 ISR:
+    BCF INTCON, GIE	;Apago Int. globales
+    
 ;Revisar datos
- 
+IRX:
+    BTFSS PIR1, RCIF	;Reviso si la Int se dio por lectura de datos
+    GOTO BOTON			;Si no, reviso la siguiente bandera
+    BCF PIR1,RCIF		;Limpio bandera
+    MOVF RCREG,W		;Muevo el dato que nos llego a W
+    MOVWF DATOINS		;GUARDO el dato en el pic
+    BTFSS CONTAR,0		;Reviso si estoy contado
+    GOTO POP			;si no, salgo de la int. 
+    MOVLW .1			;Si estoy contando, le sumo 1 al numero de dato que estoy recibieno
+    ADDWF NUMDATO,F 		;NUMDATO = Numero de dato que recibi, valores:1,2,3
 ;Revisar boton
+BOTON:
 ;Revisar Canales Analogicos
 
 
@@ -88,7 +99,7 @@ SETUP:
     
 	;Reinicio todas las variables
     CLRF PORTD
-    CLRF DATOS
+    CLRF DATOINS
     CLRF DATOX
     CLRF DATOY
     CLRF DATOZ
@@ -97,6 +108,8 @@ SETUP:
     CLRF VADC1
     CLRF VADC2
     BSF CAMBIO,0
+    MOVLW .1
+    MOVWF NUMDATO	;Seteo que se tenga un dato en la recepcion
 
 ;Llamar subs dse configuracion
 ;Limpiar variables y establecer valor inicial de banderas 
@@ -105,9 +118,45 @@ SETUP:
     
 MAINLOOP:
 ;Revisar si estoy recibiendo datos
+    BTFSC CONTAR,0	;Reviso si estoy contando=Si estoy recibiendo datos
+    GOTO RECIBIR
+    MOVLW .64		;Reviso si el dato que recibi es el marcador de inicio
+    ANDWF DATOINS,W
+    BTFSC STATUS, Z	
+    BSF CONTAR,0	;Si lo es, activo contar. 
+    GOTO RBAN		;Voy a revisar el estado de BAN
+    
+RECIBIR:
+    MOVLW .1
+    ANDWF NUMDATO,W
+    BTFSS STATUS, Z		;Reviso si es 1
+    GOTO MAINLOOP		;Si es 1, regreso al mainloop
+    GOTO DA			;Si no, comienzo a guardar los datos
+DA:    
+    MOVLW .2
+    ANDWF NUMDATO,W
+    BTFSS STATUS, Z		;Si no es 2, me voy al siguiente dato
+    GOTO DB
+    MOVF DATOS,W
+    MOVWF DATOA			;Primer dato
+    GOTO MAINLOOP
+DB:
+    MOVLW .3
+    ANDWF NUMDATO,W
+    BTFSS STATUS, Z		;Si no es 2, me voy al siguiente dato
+    GOTO DEND
+    MOVF DATOS,W
+    MOVWF DATOB			;Segundo DATO
+    GOTO MAINLOOP
+DEND:
+    BCF CONTAR,0		;Apago el bit para recibir mensajes
+    MOVLW .1
+    MOVWF NUMDATO		;Re-seteo el contador
+    GOTO MAINLOOP        
+
 
 ;Revisar BAN
-
+RBAN:
 ;LOOP MODO MANUAL   
 	
 ;Quekear AD
