@@ -4,46 +4,56 @@ Created on Thu Apr 12 10:24:56 2018
 
 @author: Andrea Maybell
 """
-
+#Importar librerías
 import tkinter as tk
 import numpy as np
 import serial
 import time
 
+#Dimensiones del área de dibujo
 canvas_width = 400
 canvas_height = 400
 
-global listX
+#Variables globales
+#LISTAS
+global listX #puntos en X
 listX=[0]
-global listY
+global listY #puntos en Y
 listY=[0]
-global listA
+global listA #ángulos alfa
 listA=[0]
-global listB
+global listB #ángulos beta
 listB=[0]
-global listI
+global listI #instrucciones
 listI=[0]
-global listP
+global listP #porcentaje de avance
 listP=[0]
-global Lista
+global Lista #lista a enviar al PIC
 Lista=[0]
-global ListaD
+global ListaD #lista Demo
 ListaD=[0]
+#BANDERAS
+global control  #0 no cambia, 1 cambio de control 
+control=0
+global marcador #0 marcador arriba, 1 marcador abajo
+marcador=0
 
+#Inicializar puerto
 ser= serial.Serial()
 ser.baudrate = 300
 ser.port= 'COM3'
 ser.stopbits=1
 ser.timeout=1
 
+#Largo relativo del brazo 
 a=260
-#var=0
 
-global control  
-control=0
-global marcador
-marcador=0
-
+"""
+paint
+Descripción: dibujar mediante óvalos con el cursor
+Parámetros: event
+Salida: listA
+"""
 def paint( event ):
     #control con interfaz
     if(event.x>=0 and event.x<canvas_width and event.y<canvas_height and event.y>=0):
@@ -55,7 +65,7 @@ def paint( event ):
         yn= abs(y-canvas_height)
         a= Alfa(x1,yn)
         b= Beta(x1,yn)
-        if((abs(listX[-1]-x1)<6) or (abs(listY[-1]-yn)<6)):
+        if((abs(listX[-1]-x1)<6) or (abs(listY[-1]-yn)<6)): #si la distancia entre un punto y el siguiente es menor a 6 pixeles
             I= listI[-1]
             listX.append(x)
             listY.append(yn)
@@ -88,14 +98,31 @@ def paint( event ):
         print("fuera del cuadrante")
     return listA
         
-
+"""
+radsAgrads
+Descripción: conversión de radianes a grados
+Parámetros: x (número a convertir)
+Salida: conversión 
+"""
 def radsAgrads(x):
     return 180*x/np.pi
-    
+
+"""
+Coord
+Descripción: Muestra los ángulos en la consola
+Parámetros: NINGUNO
+Salida: NINGUNA
+"""   
 def Coord():
     print("A",listA)
     print("B",listB)
 
+"""
+Alfa
+Descripción: Encuentra el ángulo Alfa
+Parámetros: x (coordenada x), y (coordenada y)
+Salida: alfa mapeado para el PIC
+"""
 def Alfa(x,y):
     teta= np.arctan(y/x)
     b= np.sqrt((x**2)+(y**2))
@@ -103,17 +130,35 @@ def Alfa(x,y):
     phi= np.arccos(arg)
     alfa= teta+phi
     return APic(radsAgrads(alfa))
-    
+
+"""
+Beta
+Descripción: Encuentra el ángulo Beta
+Parámetros: x (coordenada x), y (coordenada y)
+Salida: beta mapeado para el PIC
+"""    
 def Beta(x,y):
     b= np.sqrt((x**2)+(y**2))
     beta= np.arccos(((2*(x**2))-(b**2))/(2*(a**2)))
     return APic(radsAgrads(beta))
 
+"""
+APic
+Descripción: Mapea un ángulo para los valores de CCPRxL en el PIC
+Parámetros: a (ángulo a mapear)
+Salida: ángulo mapeado para el PIC
+"""
 def APic(a):
     if(a<0):
         a=0
     return int((a/5.625)//1)+32 #mapeo a pic, movimientos de 5.625°
 
+"""
+instrucción
+Descripción: Define la instrucción a realizar 
+Parámetros: var (variable para subir o bajar), con (variable de cambio de control)
+Salida: inst (instrucción para el PIC)
+"""
 def instruccion(var,con):
     if(con==0):
         inst=0
@@ -129,6 +174,12 @@ def instruccion(var,con):
 #        11 control manual con marcador abajo
     return inst
 
+"""
+armarLista
+Descripción: Forma la lista en el orden que el PIC espera recibir los datos
+Parámetros: NINGUNO
+Salida: Lista (Lista ordenada)
+"""
 def armarLista():
     print("ARM")
     Porcentaje()
@@ -141,7 +192,12 @@ def armarLista():
         Lista.append(listP[n])
     return Lista
 
-        
+"""
+Dibujar
+Descripción: Envía datos al PIC
+Parámetros: NINGUNO
+Salida: NINGUNA
+"""      
 def Dibujar():
     print(listI)
     print(listA)
@@ -151,7 +207,7 @@ def Dibujar():
     print(lista)
 #    x=0
 #    ser.open()
-#    for x in range(len(lista)):
+#    for x in range(len(lista)-1):
 #        ser.write(chr(lista[x]).encode())
 #        ser.write(chr(lista[x+1]).encode())
 #        ser.write(chr(lista[x+2]).encode())
@@ -162,6 +218,12 @@ def Dibujar():
 #    print(lista)
 #    ser.close()
 
+"""
+Porcentaje
+Descripción: Forma una lista para indicar el "porcentaje" de progreso del dibujo
+Parámetros: NINGUNO
+Salida: listP (lista de porcentajes )
+"""
 def Porcentaje():
     global listX
     global listP
@@ -198,6 +260,12 @@ def Porcentaje():
     print("largo P", len(listP))
     return listP
 
+"""
+Borrar
+Descripción: Limpia el Canvas para un nuevo dibujo y limpia las listas 
+Parámetros: NINGUNO
+Salida: NINGUNA
+"""
 def Borrar():
     w.delete("all")
     global listX
@@ -215,6 +283,12 @@ def Borrar():
     listP=[0]
     Lista=[0]
     
+"""
+MDemo
+Descripción: Muestra el dibujo guardado como demo
+Parámetros: NINGUNO
+Salida: NINGUNA
+"""
 def MDemo():
     global ListaD
     global listI
@@ -232,6 +306,12 @@ def MDemo():
     listA= ListaD[3]
     listB= ListaD[4]
 
+"""
+GDemo
+Descripción: Guarda el dibujo en el canvas como demo
+Parámetros: NINGUNO
+Salida: NINGUNA
+"""
 def GDemo():
     global listX
     global listY
@@ -240,7 +320,13 @@ def GDemo():
     global listB
     global ListaD
     ListaD=[listX,listY,listI,listA,listB]
-    
+
+"""
+cambio
+Descripción: Cambia el control de manual a por computadora y viceversa
+Parámetros: NINGUNO
+Salida: NINGUNA
+"""
 def cambio():
     global control
     if (control==0):
@@ -251,42 +337,37 @@ def cambio():
         b6.config(bg="peachpuff")
     
     
-
+#INTERFAZ GRÁFICA
+        
+#Ventana principal
 master = tk.Tk()
 master.geometry("520x480")
 master.resizable(0,0)
 master.title( "Dibuja" )
 master.configure(bg="dim gray")
 
+#Canvas para dibujar
 w = tk.Canvas(master, width=canvas_width, height=canvas_height, bg="white", bd=2)
-#w.pack()#expand = "yes")#, fill = "both")
-w.place(x=5,y=5)#,width=canvas_width,height=canvas_height)
+w.place(x=5,y=5)
 w.bind( "<B1-Motion>", paint )
-#w.bind("<Leave>", draw)
 
 message = tk.Label( master, text = "Presiona y arrastra el mouse para dibujar",font="Calibri 10 bold", bg="black", fg="white" )
-#message.pack( side = "top" )
 message.place(x=90,y=canvas_height+20)
 
+#Botones
 b1= tk.Button(master, text="Mostrar coordenadas", command=Coord, font="Calibri 10 bold")
-#b1.pack(side="bottom")
 b1.place(x=142,y=canvas_height+50)
 b2= tk.Button(master, text="Dibujar", command=Dibujar, font="Impact 14", bg="hot pink")
-#b2.pack(side="left")
 b2.place(x=canvas_width+30, y=20)
 b3= tk.Button(master, text="Borrar", command=Borrar, font="Impact 12")
-#b3.pack(side="right")
 b3.place(x=canvas_width+40, y=65)
 b4= tk.Button(master, text="Mostrar Demo", command=MDemo, font="Calibri 10 bold", bg="skyblue")
-#b4.pack(side="right")
 b4.place(x=canvas_width+20, y=380)
 b5= tk.Button(master, text="Guardar Demo", command=GDemo, font="Calibri 10 bold", bg="light green")
-#b5.pack(side="left")
 b5.place(x=canvas_width+20, y=350)
 b6= tk.Button(master, text="Cambio de modo", command=cambio, font="Calibri 10 bold")
 b6.place(x=canvas_width+15,y=200)
 
-#var= var+1
  
 master.mainloop()
 
