@@ -10,8 +10,8 @@ import numpy as np
 import serial
 import time
 
-canvas_width = 255
-canvas_height = 255
+canvas_width = 400
+canvas_height = 400
 
 global listX
 listX=[0]
@@ -23,6 +23,8 @@ global listB
 listB=[0]
 global listI
 listI=[0]
+global listP
+listP=[0]
 global Lista
 Lista=[0]
 global ListaD
@@ -34,7 +36,7 @@ ser.port= 'COM3'
 ser.stopbits=1
 ser.timeout=1
 
-a=130
+a=260
 #var=0
 
 global control  
@@ -129,12 +131,14 @@ def instruccion(var,con):
 
 def armarLista():
     print("ARM")
+    Porcentaje()
     n=0
     for n in range(len(listI)-1):
         Lista.append(64)
         Lista.append(listI[n])
         Lista.append(listA[n])
         Lista.append(listB[n])
+        Lista.append(listP[n])
     return Lista
 
         
@@ -143,6 +147,7 @@ def Dibujar():
     print(listA)
     print(listB)
     lista= armarLista()
+    print(listP)
     print(lista)
 #    x=0
 #    ser.open()
@@ -151,10 +156,47 @@ def Dibujar():
 #        ser.write(chr(lista[x+1]).encode())
 #        ser.write(chr(lista[x+2]).encode())
 #        ser.write(chr(lista[x+3]).encode())
+#        ser.write(chr(lista[x+4]).encode())
 #        time.sleep(1)
-#        x= x+4
+#        x= x+5
 #    print(lista)
 #    ser.close()
+
+def Porcentaje():
+    global listX
+    global listP
+    totalP= len(listX)
+    tot= totalP-1
+    p= tot//7
+    print("P", p)
+    print("largo X",totalP)
+    n=0
+    for n in range(p):
+        listP.append(0)
+    n=0
+    for n in range(p):
+        listP.append(1)
+    n=0
+    for n in range(p):
+        listP.append(3)
+    n=0
+    for n in range(p):
+        listP.append(7)
+    n=0
+    for n in range(p):
+        listP.append(15)
+    n=0
+    for n in range(p):
+        listP.append(31)
+    n=0
+    for n in range(p):
+        listP.append(63)
+    ult= tot-(p*7)
+    n=0
+    for n in range(ult):
+        listP.append(127)
+    print("largo P", len(listP))
+    return listP
 
 def Borrar():
     w.delete("all")
@@ -163,12 +205,14 @@ def Borrar():
     global listA
     global listB
     global listI
+    global listP
     global Lista
     listX=[0]
     listY=[0]
     listA=[0]
     listB=[0]
-    listI=[0]       
+    listI=[0]    
+    listP=[0]
     Lista=[0]
     
 def MDemo():
@@ -197,30 +241,50 @@ def GDemo():
     global ListaD
     ListaD=[listX,listY,listI,listA,listB]
     
+def cambio():
+    global control
+    if (control==0):
+        control=1
+        b6.config(bg="plum")
+    else:
+        control=0
+        b6.config(bg="peachpuff")
+    
     
 
 master = tk.Tk()
+master.geometry("520x480")
+master.resizable(0,0)
 master.title( "Dibuja" )
-w = tk.Canvas(master, 
-           width=canvas_width, 
-           height=canvas_height)
-w.pack(expand = "yes", fill = "both")
+master.configure(bg="dim gray")
+
+w = tk.Canvas(master, width=canvas_width, height=canvas_height, bg="white", bd=2)
+#w.pack()#expand = "yes")#, fill = "both")
+w.place(x=5,y=5)#,width=canvas_width,height=canvas_height)
 w.bind( "<B1-Motion>", paint )
 #w.bind("<Leave>", draw)
 
-message = tk.Label( master, text = "Presiona y arrastra el mouse para dibujar" )
-message.pack( side = "top" )
+message = tk.Label( master, text = "Presiona y arrastra el mouse para dibujar",font="Calibri 10 bold", bg="black", fg="white" )
+#message.pack( side = "top" )
+message.place(x=90,y=canvas_height+20)
 
-b1= tk.Button(master, text="Mostrar coordenadas", command=Coord)
-b1.pack(side="bottom")
-b2= tk.Button(master, text="Dibujar", command=Dibujar)
-b2.pack(side="left")
-b3= tk.Button(master, text="Borrar", command=Borrar)
-b3.pack(side="right")
-b4= tk.Button(master, text="Mostrar Demo", command=MDemo)
-b4.pack(side="right")
-b5= tk.Button(master, text="Guardar Demo", command=GDemo)
-b5.pack(side="left")
+b1= tk.Button(master, text="Mostrar coordenadas", command=Coord, font="Calibri 10 bold")
+#b1.pack(side="bottom")
+b1.place(x=142,y=canvas_height+50)
+b2= tk.Button(master, text="Dibujar", command=Dibujar, font="Impact 14", bg="hot pink")
+#b2.pack(side="left")
+b2.place(x=canvas_width+30, y=20)
+b3= tk.Button(master, text="Borrar", command=Borrar, font="Impact 12")
+#b3.pack(side="right")
+b3.place(x=canvas_width+40, y=65)
+b4= tk.Button(master, text="Mostrar Demo", command=MDemo, font="Calibri 10 bold", bg="skyblue")
+#b4.pack(side="right")
+b4.place(x=canvas_width+20, y=380)
+b5= tk.Button(master, text="Guardar Demo", command=GDemo, font="Calibri 10 bold", bg="light green")
+#b5.pack(side="left")
+b5.place(x=canvas_width+20, y=350)
+b6= tk.Button(master, text="Cambio de modo", command=cambio, font="Calibri 10 bold")
+b6.place(x=canvas_width+15,y=200)
 
 #var= var+1
  
