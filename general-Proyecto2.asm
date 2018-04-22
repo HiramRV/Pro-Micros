@@ -37,6 +37,18 @@ PUSH:
     
 ISR:
     BCF INTCON, GIE
+    BTFSS INTON, RBIF	;Reviso Int. de Bonton
+    GOTO INADC		;Me voy al ADC
+    BCF INTCON,RBIF	;Limpio la bandera
+    BTFSC BOTON,0
+    GOTO OP2
+OP1:
+    BCF BOTON,0
+    GOTO POP
+OP2:
+    BSF BOTON,0
+    GOTO POP    
+INADC:    
     BTFSS PIR1, ADIF
     GOTO IRX
     BCF PIR1, ADIF	    ;Apago bandera de adc
@@ -83,8 +95,22 @@ SETUP:
     BCF STATUS, RP1	;BANCO 1
     
     BCF PIE1, ADIE	;Habilito interrupciones del ADC hasta que esté en modo manual
+    ;Boton de cambio
+    BSF TRISB, RB7	;RB0 como entrada
+    BCF TRISB, RB6	;Led alarma
+    
+    BSF IOCB, IOCB7	;Interrupcion de cambio para RB7
+    BSF INTCON,RBIE	;Interrupcion puerto B
+    BCF INTCON, RBIF	;Limpio la bandera de RB
+    
     ;Limpio puertos
     CLRF TRISD
+    
+    BSF STATUS, RP0
+    BSF STATUS, RP1	;Banco3
+    
+    CLRF ANSELH	 ;Puetos i/o Digitales
+    
     BCF STATUS, RP0
     BCF STATUS, RP1	;Banco0
     
@@ -98,6 +124,7 @@ SETUP:
 ;    MOVWF NUMDATO	;Seteo que tenga un dato en la recepción
     CLRF NUMDATO
     CLRF CONTAR
+    CLRF BOTON
     CLRF VADC1
     CLRF VADC2
     BSF CAMBIO,0
