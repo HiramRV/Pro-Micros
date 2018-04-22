@@ -75,6 +75,10 @@ SETUP:
     CALL INITOSCCON
     CALL INITUSART
     CALL INITADC
+    CALL INITPWM1
+    CALL INITPWM2
+    CALL INITTMR0
+    
     BSF STATUS, RP0
     BCF STATUS, RP1	;BANCO 1
     
@@ -190,10 +194,6 @@ MANUAL:
     GOTO MAINLOOP
     
     
-    
-    
-
-
 ;*******************************************************************************
 ; SUBRUTINA PARA CONFIGURAR USART
 ;*******************************************************************************   
@@ -243,9 +243,9 @@ INITOSCCON
     BSF STATUS, RP0
     BCF STATUS, RP1	;BANCO 1
     
-    BSF OSCCON, IRCF2
+    BCF OSCCON, IRCF2
     BSF OSCCON, IRCF1
-    BCF OSCCON, IRCF0   ;4MHz
+    BSF OSCCON, IRCF0   ;500 kHz
     
     BCF OSCCON, OSTS 	; INICIAMOS CON EL OSCILADOR INTERNO
     BSF OSCCON, HTS		;ESTABLE
@@ -330,7 +330,62 @@ INITADC
    ;7
    BSF ADCON0, ADON	;Encedemos el ADC
    RETURN   
-   
+
+;*******************************************************************************
+; SUBRUTINA PARA INICIAR PWM
+;******************************************************************************* 
+INITPWM1
+    ;Disable de PWM, setear TRIS
+    BSF STATUS, RP0
+    BCF STATUS, RP1	    ; BANCO 1
+    BSF TRISC, TRISC2	    ; CCP1 ENTRADA
+    ;Set PWM period
+    MOVLW .155
+    MOVWF PR2
+    ;Configurar CCP
+    BCF STATUS,RP0	    ; BANCO 0
+    MOVLW B'00001100'	    ; MODO PWM
+    MOVWF CCP1CON
+    ;Set duty cycle
+    MOVLW B'00111110'
+    MOVWF CCPR1L
+    ;Configurar e iniciar TMR2
+    BCF PIR1,TMR2IF
+    BSF T2CON,T2CKPS1
+    BSF T2CON,T2CKPS0
+    BSF T2CON,TMR2ON
+    ;Habilitar salida del PWM
+    BTFSS PIR1,TMR2IF
+    GOTO $-1		    ; POSICIÓN PC - 1
+    BCF PIR1,TMR2IF
+    BSF STATUS,RP0	    ; BANCO 1
+    BCF TRISC,TRISC2	    ; CCP1 SALIDA
+    
+    BCF STATUS,RP0
+    RETURN
+    
+INITPWM2
+    ;Disable de PWM, setear TRIS
+    BSF STATUS, RP0
+    BCF STATUS, RP1	    ; BANCO 1
+    BSF TRISC, TRISC1	    ; CCP2  ENTRADA
+    ;Configurar CCP
+    BCF STATUS,RP0	    ; BANCO 0
+    MOVLW B'00001100'	    ; MODO PWM
+    MOVWF CCP2CON
+    ;Set duty cycle
+    MOVLW B'00111110'
+    MOVWF CCPR2L
+    ;Habilitar salida del PWM
+    BTFSS PIR1,TMR2IF
+    GOTO $-1		    ; POSICIÓN PC - 1
+    BCF PIR1,TMR2IF
+    BSF STATUS,RP0	    ; BANCO 1
+    BCF TRISC,TRISC1	    ; CCP2 SALIDA
+    
+    BCF STATUS,RP0
+    RETURN
+    
 ;*******************************************************************************
 ; SUBRUTINA PARA SUBIR MARCADOR
 ;******************************************************************************* 
