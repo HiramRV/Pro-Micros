@@ -40,14 +40,26 @@ ISR:
     BTFSS INTON, RBIF	;Reviso Int. de Bonton
     GOTO INADC		;Me voy al ADC
     BCF INTCON,RBIF	;Limpio la bandera
-    BTFSC BOTON,0
+    BTFSS PORTB,RB7	;Reviso entre los botones
+    GOTO CMODO
+    BTFSS BOTON,0	;Le cambio el valor a la variable boton
     GOTO OP2
 OP1:
-    BCF BOTON,0
+   BCF BOTON,0
     GOTO POP
 OP2:
     BSF BOTON,0
-    GOTO POP    
+    GOTO POP 
+    
+CMODO:
+    BTFSS BAN,0	;Le cambio el valor a la variable boton
+    GOTO OP4
+OP3:
+    BCF BAN,0
+    GOTO POP
+OP4:
+    BSF BAN,0
+    GOTO POP
 INADC:    
     BTFSS PIR1, ADIF
     GOTO IRX
@@ -179,6 +191,7 @@ DEND:
 ;    GOTO MAINLOOP        
     
 YA:
+    BCF PORTB,RB6	;Indica Modo Compu
     BCF PIE1,ADIE	;Deshabilito interrupción del ADC
     BTFSS DATOINS,1
     CALL ARRIBA
@@ -193,6 +206,7 @@ YA:
     GOTO MAINLOOP
 
 MANUAL:
+    BCF PORTB,RB6	;Indica Modo manual
     BSF PIE1, ADIE	;Habilito interrupciones del ADC
     BSF ADCON0,GO
     
