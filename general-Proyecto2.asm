@@ -22,7 +22,7 @@ DATOA		 RES        1
 DATOB		 RES        1
 NUMDATO		 RES        1
 CAMBIO		 RES	    1
-BAN		 RES	    1
+BAN		 	 RES	    1
 BOTON		 RES	    1
 ;*******************************************************************************
  
@@ -37,7 +37,7 @@ PUSH:
     
 ISR:
     BCF INTCON, GIE
-    BTFSS INTON, RBIF	;Reviso Int. de Bonton
+    BTFSS INTCON, RBIF	;Reviso Int. de Bonton
     GOTO INADC		;Me voy al ADC
     BCF INTCON,RBIF	;Limpio la bandera
     BTFSS PORTB,RB7	;Reviso entre los botones
@@ -45,7 +45,7 @@ ISR:
     BTFSS BOTON,0	;Le cambio el valor a la variable boton
     GOTO OP2
 OP1:
-   BCF BOTON,0
+    BCF BOTON,0
     GOTO POP
 OP2:
     BSF BOTON,0
@@ -106,10 +106,11 @@ SETUP:
     BSF STATUS, RP0
     BCF STATUS, RP1	;BANCO 1
     
-    BCF PIE1, ADIE	;Habilito interrupciones del ADC hasta que est√© en modo manual
+    BCF PIE1, ADIE	;Habilito interrupciones del ADC hasta que estÈ en modo manual
     ;Boton de cambio
     BSF TRISB, RB7	;RB0 como entrada
     BCF TRISB, RB6	;Led alarma
+	BCF TRISA, RA3  ;Servo 3
     
     BSF IOCB, IOCB7	;Interrupcion de cambio para RB7
     BSF INTCON,RBIE	;Interrupcion puerto B
@@ -133,7 +134,7 @@ SETUP:
     CLRF DATOB
     CLRF DATOINS
 ;    MOVLW .1
-;    MOVWF NUMDATO	;Seteo que tenga un dato en la recepci√≥n
+;    MOVWF NUMDATO	;Seteo que tenga un dato en la recepciÛn
     CLRF NUMDATO
     CLRF CONTAR
     CLRF BOTON
@@ -145,7 +146,7 @@ SETUP:
     
 MAINLOOP:
     BTFSC CONTAR,0	;Estoy contando?
-    GOTO RECIBIR	;S√≠, entonces sigo recibiendo
+    GOTO RECIBIR	;SÌ, entonces sigo recibiendo
     MOVF DATOS,W	;No, entonces reviso el primer dato
     SUBLW .64		;Reviso si el dato que recibi es el marcador de inicio
     BTFSS STATUS, Z	;Si no, reviso BAN
@@ -154,8 +155,8 @@ MAINLOOP:
     GOTO MAINLOOP
 RBAN:
     BTFSS BAN,0		;Reviso BAN
-    GOTO YA		;Si est√° en 0 quiere decir que ya tiene datos y est√° en modo compu
-    GOTO MANUAL		;Si est√° en 1 paso a modo manual
+    GOTO YA		;Si est· en 0 quiere decir que ya tiene datos y est· en modo compu
+    GOTO MANUAL		;Si est· en 1 paso a modo manual
 
     GOTO MAINLOOP
     
@@ -192,7 +193,7 @@ DEND:
     
 YA:
     BCF PORTB,RB6	;Indica Modo Compu
-    BCF PIE1,ADIE	;Deshabilito interrupci√≥n del ADC
+    BCF PIE1,ADIE	;Deshabilito interrupciÛn del ADC
     BTFSS DATOINS,1
     CALL ARRIBA
     BTFSC DATOINS,1
@@ -397,7 +398,7 @@ INITPWM1
     BSF T2CON,TMR2ON
     ;Habilitar salida del PWM
     BTFSS PIR1,TMR2IF
-    GOTO $-1		    ; POSICI√ìN PC - 1
+    GOTO $-1		    ; POSICI”N PC - 1
     BCF PIR1,TMR2IF
     BSF STATUS,RP0	    ; BANCO 1
     BCF TRISC,TRISC2	    ; CCP1 SALIDA
@@ -419,7 +420,7 @@ INITPWM2
     MOVWF CCPR2L
     ;Habilitar salida del PWM
     BTFSS PIR1,TMR2IF
-    GOTO $-1		    ; POSICI√ìN PC - 1
+    GOTO $-1		    ; POSICI”N PC - 1
     BCF PIR1,TMR2IF
     BSF STATUS,RP0	    ; BANCO 1
     BCF TRISC,TRISC1	    ; CCP2 SALIDA
