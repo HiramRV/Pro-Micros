@@ -1,3 +1,7 @@
+; PIC16F887 Configuration Bit Settings
+
+; Assembly source line config statements
+
 #include "p16f887.inc"
 
 ; CONFIG1
@@ -5,36 +9,46 @@
  __CONFIG _CONFIG1, _FOSC_INTRC_NOCLKOUT & _WDTE_OFF & _PWRTE_OFF & _MCLRE_ON & _CP_OFF & _CPD_OFF & _BOREN_OFF & _IESO_OFF & _FCMEN_OFF & _LVP_OFF
 ; CONFIG2
 ; __config 0x3FFF
- __CONFIG _CONFIG2, _BOR4V_BOR40V & _WRT_OFF
- 
+ __CONFIG _CONFIG2, _BOR4V_BOR40V & _WRT_OFF 
 ;*******************************************************************************
-GPR_VAR        UDATA	    ; Variables Usuario      
-CONT1		 RES	    1
-CONT2		 RES	    1
-VTEMP		 RES	    1
-STATUST		 RES	    1
-VADC2		 RES	    1
-VADC1		 RES	    1
-DATOS		 RES        1
-CONTAR		 RES	    1
-DATOX		 RES	    1
-DATOY		 RES        1
-DATOZ		 RES        1
-NUMDATO		 RES        1
-CAMBIO		 RES	    1
+; VARIABLES                                                                    ;
 ;*******************************************************************************
- 
+
+GPR_VAR        UDATA
+STATUST	    RES     1
+VTEMP       RES     1
+DATOS       RES     1
+CONTAR	    RES	    1
+DATOINS	    RES	    1
+DATOA	    RES     1
+DATOB	    RES	    1
+CONTADOR    RES	    1
+BAN	    RES	    1
+CONT2	    RES	    1
+CONT1	    RES	    1
+VADC2	    RES	    1
+VADC1	    RES	    1
+CAMBIO	    RES	    1
+BOTON	    RES	    1
+;*******************************************************************************
+; RESET VECTOR                                                                 ;
+;*******************************************************************************
+
 RES_VECT  CODE    0x0000            ; processor reset vector
     GOTO    SETUP                   ; go to beginning of program
+
+;*******************************************************************************
+; INTERRUPCIONES                                                               ;
+;******************************************************************************* 
     
-ISR_VECTOR CODE 0X04
+ISR_VECTOR CODE 0X04          ; interrupt vector location
+ 
 PUSH:
     MOVWF VTEMP
-    SWAPF STATUS, W
+    SWAPF STATUS,W
     MOVWF STATUST
-    
-ISR:
     BCF INTCON, GIE
+    
     BTFSS PIR1, ADIF
     GOTO IRX
     BCF PIR1, ADIF	    ;Apago bandera de adc
@@ -48,68 +62,192 @@ C1:
 C2:
     MOVF ADRESH,W
     MOVWF VADC2
-    GOTO POP 
-IRX:
-    BTFSS PIR1, RCIF	;Reviso si fue por lectura de datos
-    GOTO POP			;Si no, me salgo
-    BCF PIR1,RCIF		;Limpio bandera
-    MOVF RCREG,W		;Muevo el dato que nos llego a W
-    MOVWF DATOS			;Muestro el dato en el pic
-    BTFSS CONTAR,0		;Reviso si estoy contado
     GOTO POP
-    MOVLW .1
-    ADDWF NUMDATO,F
+IRX:
+    BTFSS PIR1, RCIF
+    GOTO POP
+    BCF PIR1,RCIF
+    MOVF RCREG,W
+    MOVWF DATOS
 POP:
-    BSF INTCON, GIE		;Activo las interrupciones Globales
+    BSF INTCON, GIE
     SWAPF STATUST,W
     MOVWF STATUS
     SWAPF VTEMP,F
     SWAPF VTEMP,W
-    
-    RETFIE
-
-MAIN_PROG CODE 
+    RETFIE 
+;*******************************************************************************
+; MAIN PROGRAM                                                                 ;
+;*******************************************************************************   
+     
+MAIN_PROG CODE                      ; let linker place main program  
 SETUP:
-    CALL INITOSCCON
-    CALL INITUSART
-    CALL INITADC
+ 
+ BCF STATUS, RP1
+ BSF STATUS, RP0  ; Banco 1
+ 
+ BSF OSCCON, SCS
+ BCF OSCCON, OSTS 
+ BSF OSCCON, HTS 
+ BSF OSCCON, IRCF0
+ BSF OSCCON, IRCF1
+ BCF OSCCON, IRCF2 ; OSCILACON 500 KHz
+ 
+ ; PUERTO D COMO SALIDA
+ CLRF TRISD
+ ;BCF TRISC,6
+ ;BSF TRISC,7
+
+ CLRF ANSEL     ; PUERTOS I/O DIGITALES DE PUERTO A Y E
+ ;BSF ANSEL,0	; RA0 SE USA COMO PUERTO ANALOGO
+; BSF ANSEL,1	; RA1 SE USA COMO PUERTO ANALOGO
+ CLRF ANSELH	; PUERTOS I/O DIGITALES DE PUERTO B
+ 
+ ; LIMPIO EL PUERTO D
+ CLRF PORTD 
+
+INITUSART:
+    
+    BCF STATUS, RP1
+    BSF STATUS, RP0  ; Banco 1
+    
+    ; SYNC= 0, BRGH=1
+    ;MOVLW B'00000100'
+    BCF TXSTA, SYNC
+    BCF TXSTA, BRGH
+        
+    CLRF SPBRG ; LIMPIO SPBRG
+
+    ; VALOR CALCULADO PARA SPBRG, FOSC= 4MHz, BAUDRATE=9600
+    MOVLW .25
+    MOVWF SPBRG
+
+    BSF STATUS, RP1
+    BSF STATUS, RP0  ; Banco 3 
+  
+    BCF BAUDCTL, BRG16  
+    
+    BCF STATUS, RP1
+    BCF STATUS, RP0  ; Banco 0
+    
+    BSF RCSTA, SPEN
+    
+    BCF STATUS, RP1
+    BSF STATUS, RP0  ; Banco 1
+    
+    BCF TXSTA, TX9
+    
+    BSF PIE1,RCIE
+    BSF INTCON,PEIE
+    BCF INTCON, GIE
+    BCF STATUS, RP1
+    BCF STATUS, RP0  ; Banco 0
+    
+    BSF RCSTA, CREN ; SE HABILITA RX 
+
+; SUBRUTINA PARA INICIALIZAR TIMER0, RETRASO DE 0.5 ms
+INICIOTIMER0:
+    
     BSF STATUS, RP0
-    BCF STATUS, RP1	;BANCO 1
+    BCF STATUS, RP1 ; BANCO 1
     
-    BSF PIE1, ADIE	;Habilito interrupciones del ADC
-    ;Limpio puertos
-    CLRF TRISD
+    BCF OPTION_REG, T0CS ; MODO DE TEMPORIZADOR, INTERNAL INSTRUCTION CYCLE CLOCK
+    BSF OPTION_REG, T0SE ; AUMENTA EN FLANCO DE SUBIDA
+    BCF OPTION_REG, PSA  ; SE ASIGNA EL PRESCALER AL TIMER0
+    
+    BCF OPTION_REG, PS2
+    BCF OPTION_REG, PS1
+    BSF OPTION_REG, PS0 ; 1:4
+    
     BCF STATUS, RP0
-    BCF STATUS, RP1	;Banco0
+    BCF STATUS, RP1  ; BANCO 0
     
-	;Reinicio todas las variables
+    MOVLW .248	; N CALCULADO
+    MOVWF TMR0	; SE CARGA N EN EL TIMER0
+    
+    BSF STATUS, RP0
+    BCF STATUS, RP1 ; BANCO 1
+    
+    BCF INTCON, T0IF ;SE COLOCA EN 0 LA BANDERA T0IF
+      
+    BCF STATUS, RP0
+    BCF STATUS, RP1  ; BANCO 0
+ 
     CLRF PORTD
-    CLRF DATOS
-    CLRF DATOX
-    CLRF DATOY
-    CLRF DATOZ
-    CLRF NUMDATO
-    CLRF CONTAR
+    
+    BSF STATUS, RP0
+    BCF STATUS, RP1	;Banco1
+    ;#####################################################
+    ;BSF TRISB, RB0
+    ;BSF TRISB, RB1	;Entradas RB 
+    BCF TRISA, RA7	;RAY como salida
+    BSF PIE1, ADIE	;Habilito interrupciones del ADC
+    ;BSF STATUS, RP0
+    ;BSF STATUS, RP1	;Banco3
+    ;CLRF ANSELH ;Puetos i/o Digitales
+    ;BSF STATUS, RP0
+    ;BCF STATUS, RP1	;Banco1
+    ;BSF IOCB, IOCB0	;Habilito Int cambio de estado RB0
+    ;BSF IOCB, IOCB1	;Habilito Int cambio de estado RB1
+    ;BCF INTCON, RBIF	;Apagamos bandera Int en RB
+    ;BSF INTCON, RBIE	;Habilito Int, de cambio de estado Puerto B
+    ;#####################################################
+    BCF STATUS, RP0
+    BCF STATUS, RP1  ; BANCO 0
+ 
+    CLRF PORTA
+    CLRF PORTB
+    BSF PORTB,0
+    
+    CALL INITPWM1
+    CALL INITPWM2
+    CALL INITADC
     CLRF VADC1
     CLRF VADC2
     BSF CAMBIO,0
-	
-    GOTO MAINLOOP
     
+    BSF BAN,0	    ;Manual  por default
+;*******************************************************************************************;
+; MAINLOOP: SE CONVIERTE LA ENTRADA DE PORTA0 A UN VALOR BINARIO DE 1O BITS,                ;
+; Y SE GUARDA EN LA VARIABLE SERVO1, LO MISMO CON EL VALOR DE PORTA1 Y SE GUARDA EN SERVO2. ;
+; LUEGO LAS VARIABLES DE CARGAN A CCPR1L Y CCPR2L PARA MOVER LOS SERVOS                     ;
+;*******************************************************************************************;    
+ 
 MAINLOOP:
-    BTFSC CONTAR,0
-    GOTO RECIBIR
+    BSF INTCON,GIE
+    ;BTFSC PORTB,0
+    ;GOTO CAMBIO1
+    BTFSC CONTAR,0	;Estoy contando?
+    GOTO RECIBIR	;Sí, entonces sigo recibiendo
     MOVLW .64		;Reviso si el dato que recibi es el marcador de inicio
-    ANDWF DATOS,W
-    BTFSC STATUS, Z
+    SUBWF DATOS,W	;No, entonces reviso el primer dato
+    BTFSC STATUS, Z	;Si no, reviso BAN
+    GOTO B_CONTAR
+    GOTO B_BAN
+  
+B_CONTAR:    
     BSF CONTAR,0	;Si lo es, activamos el modo contar
+    GOTO MAINLOOP   
+B_BAN:
+    BTFSC BAN,0
+    GOTO D_ADC	    ;1-->ADC
+    GOTO D_PC	    ;0-->PC
+    
+D_ADC:
+    BSF PORTA, RA7	;LEd de modo
 VA1:
     BSF ADCON0,1	;Comenzamos conversion
     CALL DELAY
     MOVF VADC1, W
-    MOVWF CCPR1L   
+    MOVWF CCPR1L 
+    MOVWF PORTD
 VA2:
     BSF INTCON, GIE	;Habilitamos interrupciones globales
+    BTFSS BOTON,0
+    CALL ARRIBA
+    BTFSC BOTON,0
+    CALL ABAJO
+    
     BSF ADCON0, CHS3	;Canal analogo 12.
     BSF ADCON0, CHS2
     CALL DELAY
@@ -125,125 +263,127 @@ VA2:
     BCF ADCON0, CHS2	
     CALL DELAY
     BCF CAMBIO,0
+    GOTO MAINLOOP
     
+D_PC:
+    BCF PORTA,RA7
+    MOVLW B'00011111'
+    ANDWF DATOA,F
+    RRF DATOA,W
+    MOVWF CCPR2L
+    CALL DELAY
+    
+    MOVLW B'00011111'
+    ANDWF DATOB,F
+    RRF DATOB,W
+    MOVWF CCPR1L
     GOTO MAINLOOP
+    
 RECIBIR:
-    MOVLW .0
-    ANDWF NUMDATO,W
-    BTFSC STATUS, Z		;Reviso si es 0
-    GOTO MAINLOOP		;Si es 0, regreso al mainloop
-    GOTO DX				;Si no, comienzo a guardar los datos
-DX:    
-    MOVLW .1
-    ANDWF NUMDATO,W
-    BTFSS STATUS, Z
-    GOTO DY
-    MOVF DATOS,W
-    MOVWF DATOX			;Primer dato
-    GOTO MAINLOOP
-DY:
-    MOVLW .2
-    ANDWF NUMDATO,W
-    BTFSS STATUS, Z
-    GOTO DZ
-    MOVF DATOS,W
-    MOVWF DATOY			;Segundo DATO
-    GOTO MAINLOOP
-DZ:
-    MOVLW .3
-    ANDWF NUMDATO,W
-    BTFSS STATUS, Z
-    GOTO DEND
-    MOVF DATOS,W
-    MOVWF DATOZ			;Tercer dato
-    GOTO MAINLOOP
+    CLRF DATOS
+    BCF STATUS, RP1
+    BSF STATUS, RP0  ; Banco 1 
+    BCF PIE1,RCIE
+    BCF STATUS, RP0
+    BCF STATUS, RP1  ; BANCO 0
+DI:    
+    BTFSS PIR1, RCIF
+    GOTO $-1
+    BCF PIR1,RCIF
+    MOVF RCREG,W
+    MOVWF DATOINS		;Primer dato
+DALFA:
+    BTFSS PIR1, RCIF
+    GOTO $-1
+    BCF PIR1,RCIF
+    MOVF RCREG,W
+    MOVWF DATOA			;Segundo DATO
+DBETA:
+    BTFSS PIR1, RCIF
+    GOTO $-1
+    BCF PIR1,RCIF
+    MOVF RCREG,W
+    MOVWF DATOB			;Tercer dato
 DEND:
     BCF CONTAR,0		;Apago el bit para recibir mensajes
-    CLRF NUMDATO		;Reinicio contador
-    GOTO MAINLOOP        
-
-    
-INITUSART
-    ;1
-    BSF STATUS, RP0
-    BCF STATUS, RP1	;BANCO 1
-    
-    BCF TXSTA, SYNC	;Comunicacion Asincrona
-    BSF TXSTA, BRGH	;Velocidad alta BR
-    CLRF SPBRGH
-    MOVLW .25
-    MOVWF SPBRG		;BG = 9615
-    ;BANCO 3
-    BSF STATUS, RP0
-    BSF STATUS, RP1	;BANCO 3
-    
-    BSF BAUDCTL, BRG16	;BG DE 16 BITS
-    ;2
-    ;BANCO0
+    CLRF DATOS
+    BCF STATUS, RP1
+    BSF STATUS, RP0  ; Banco 1 
+    BSF PIE1,RCIE
     BCF STATUS, RP0
-    BCF STATUS, RP1	;Banco0
+    BCF STATUS, RP1  ; BANCO 0
+    GOTO MAINLOOP   
     
-    BSF RCSTA, SPEN	;HABILITAMOS PUERTOS
-    ;BANCO 1
+;*******************************************************************************    
+CAMBIO1:
+    ;BTFSS BAN,0
+    ;GOTO RB0_C
+    ;BCF BAN,0
+    ;RETURN
+RB0_C
+    ;BSF BAN,0
+    MOVLW .255
+    MOVWF PORTD
+    CALL DELAY
+    GOTO MAINLOOP
+ 
+;*******************************************************************************
+; SUBRUTINA PARA INICIAR PWM
+;******************************************************************************* 
+INITPWM1
+    ;Disable de PWM, setear TRIS
     BSF STATUS, RP0
-    BCF STATUS, RP1	;BANCO 1
-    ;3
-    BCF TXSTA, TX9	  ;8 BITS
-    ;4	    
-    ;BSF TXSTA, TXEN	;HABILITAMOS TRANSMISION?
-    ;----Interupcciones DE recepcion
-    BSF PIE1, RCIE	;Habilitamos banderas al recibir datos
-    BSF INTCON,PEIE	;Interrupciones Perifericas
-    BCF INTCON, GIE	;Dejo apagadas las interrupciones globales de momento
+    BCF STATUS, RP1	    ; BANCO 1
+    BSF TRISC, TRISC2	    ; CCP1 ENTRADA
+    ;Set PWM period
+    MOVLW .155
+    MOVWF PR2
+    ;Configurar CCP
+    BCF STATUS,RP0	    ; BANCO 0
+    MOVLW B'00001100'	    ; MODO PWM
+    MOVWF CCP1CON
+    ;Set duty cycle
+    MOVLW B'00111110'
+    MOVWF CCPR1L
+    ;Configurar e iniciar TMR2
+    BCF PIR1,TMR2IF
+    BSF T2CON,T2CKPS1
+    BSF T2CON,T2CKPS0
+    BSF T2CON,TMR2ON
+    ;Habilitar salida del PWM
+    BTFSS PIR1,TMR2IF
+    GOTO $-1		    ; POSICIÓN PC - 1
+    BCF PIR1,TMR2IF
+    BSF STATUS,RP0	    ; BANCO 1
+    BCF TRISC,TRISC2	    ; CCP1 SALIDA
     
-    BCF STATUS, RP0
-    BCF STATUS, RP1	;Banco0
-    BSF RCSTA, CREN	;Habilitamos recepcion
-    ;6
-    
+    BCF STATUS,RP0
     RETURN
-;#############################################################  
-INITOSCCON
+    
+INITPWM2
+    ;Disable de PWM, setear TRIS
     BSF STATUS, RP0
-    BCF STATUS, RP1	;BANCO 1
+    BCF STATUS, RP1	    ; BANCO 1
+    BSF TRISC, TRISC1	    ; CCP2  ENTRADA
+    ;Configurar CCP
+    BCF STATUS,RP0	    ; BANCO 0
+    MOVLW B'00001100'	    ; MODO PWM
+    MOVWF CCP2CON
+    ;Set duty cycle
+    MOVLW B'00111110'
+    MOVWF CCPR2L
+    ;Habilitar salida del PWM
+    BTFSS PIR1,TMR2IF
+    GOTO $-1		    ; POSICIÓN PC - 1
+    BCF PIR1,TMR2IF
+    BSF STATUS,RP0	    ; BANCO 1
+    BCF TRISC,TRISC1	    ; CCP2 SALIDA
     
-    BSF OSCCON, IRCF2
-    BSF OSCCON, IRCF1
-    BCF OSCCON, IRCF0   ;4MHz
-    
-    BCF OSCCON, OSTS 	; INICIAMOS CON EL OSCILADOR INTERNO
-    BSF OSCCON, HTS		;ESTABLE
-    BSF OSCCON, SCS 	; RELOJ INTERNO PARA SISTEMA
-    RETURN 
- ;#############################################################   
-INITTMR0
-   BSF STATUS, RP0
-   BCF STATUS, RP1	;BANCO 1
-    
-    
-   BCF OPTION_REG, T0CS	;MODO TEMPORIZADOR
-   BSF OPTION_REG, T0SE	;Flanco subida
-   BCF OPTION_REG, PSA	;PRESCALER ASIGNAMOS A TMR0
-   
-   BCF OPTION_REG, PS2
-   BCF OPTION_REG, PS1
-   BSF OPTION_REG, PS0	;PRESCALER 1:4
-   
-   BCF STATUS, RP0
-   BCF STATUS, RP1	;BANCO 0
-   
-   MOVLW .248
-   MOVWF TMR0		;CARGAMOS N 
-   BSF STATUS, RP0
-   BCF STATUS, RP1	;BANCO 1
-   
-   BCF INTCON, T0IF	;Reinicio la bandera de T0
-   
-   BCF STATUS, RP0
-   BCF STATUS, RP1	;BANCO 0
-  
-   RETURN
-;#############################################################     
+    BCF STATUS,RP0
+    RETURN
+;*******************************************************************************
+; SUBRUTINA PARA CONFIGURAR ADC
+;*******************************************************************************   
 INITADC
    ;1
    BSF STATUS, RP0
@@ -290,8 +430,11 @@ INITADC
    ;7
    BSF ADCON0, ADON	;Encedemos el ADC
    RETURN   
-;########################################    
-DELAY	;SUB-RUTINA
+
+    ;*******************************************************************************
+; SUBRUTINA DE DELAY
+;******************************************************************************* 
+DELAY
     CLRF CONT1
     CLRF CONT2
     MOVLW .1
@@ -306,5 +449,47 @@ RESTAR2:
     GOTO RESTAR1
     
     RETURN 
+;*******************************************************************************
+; SUBRUTINA PARA SUBIR MARCADOR
+;******************************************************************************* 
+ARRIBA
+   BSF PORTA,RA3
+CHECKT0IFUP1:
+   BTFSS INTCON,T0IF
+   GOTO CHECKT0IFUP1
+   BCF INTCON,T0IF
+   MOVLW .248
+   MOVWF TMR0
    
-   END
+   BCF PORTA,RA3
+CHECKT0IFUP2:
+   BTFSS INTCON,T0IF
+   GOTO CHECKT0IFUP2
+   BCF INTCON,T0IF
+   MOVLW .108
+   MOVWF TMR0
+   
+   RETURN
+   
+;*******************************************************************************
+; SUBRUTINA PARA BAJAR MARCADOR
+;******************************************************************************* 
+ABAJO
+   BSF PORTA,RA3
+CHECKT0IFD1:
+   BTFSS INTCON,T0IF
+   GOTO CHECKT0IFD1
+   BCF INTCON,T0IF
+   MOVLW .244
+   MOVWF TMR0
+   
+   BCF PORTA,RA3
+CHECKT0IFD2:
+   BTFSS INTCON,T0IF
+   GOTO CHECKT0IFD2
+   BCF INTCON,T0IF
+   MOVLW .111
+   MOVWF TMR0
+
+   RETURN    
+    END
